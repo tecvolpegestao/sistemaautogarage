@@ -26,6 +26,22 @@ const BOARD: (typeof SERVICE_STATUSES)[number][] = [
   "DELIVERED",
 ];
 
+function boardColumns(
+  orders: { serviceStatus: string }[],
+  filters: { status?: string; payment?: string; q?: string; partner?: boolean; stale?: boolean; from?: Date | null; to?: Date | null },
+) {
+  const narrowed = Boolean(filters.status || filters.payment || filters.q || filters.partner || filters.stale || filters.from || filters.to);
+  const present = new Set(orders.map((order) => order.serviceStatus));
+  const columns: string[] = [];
+  for (const status of filters.status ? [filters.status] : BOARD) {
+    if (!narrowed || present.has(status)) columns.push(status);
+  }
+  for (const status of present) {
+    if (!columns.includes(status)) columns.push(status);
+  }
+  return columns;
+}
+
 export default async function OrdensPage({
   searchParams,
 }: {
@@ -146,9 +162,8 @@ export default async function OrdensPage({
 
       {board && orders.length > 0 ? (
         <div className="flex gap-3 overflow-x-auto pb-2">
-          {(filters.status ? [filters.status] : BOARD).map((status) => {
+          {boardColumns(orders, filters).map((status) => {
             const column = orders.filter((order) => order.serviceStatus === status);
-            if (!BOARD.includes(status as (typeof BOARD)[number]) && column.length === 0) return null;
             return (
               <div key={status} className="w-64 shrink-0 rounded-lg border border-line bg-bg">
                 <div className="flex items-center justify-between border-b border-line px-3 py-2">

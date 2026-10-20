@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useState } from "react";
+import { useState, useSyncExternalStore } from "react";
 import {
   CircleDollarSign,
   ClipboardList,
@@ -28,6 +28,20 @@ const NAV: { href: string; label: string; icon: typeof LayoutDashboard; roles: R
   { href: "/configuracoes", label: "Configurações", icon: Settings, roles: ["OWNER"] },
 ];
 
+function readTheme() {
+  if (typeof window === "undefined") return "dark" as const;
+  return localStorage.getItem("ag-theme") === "light" ? "light" : "dark";
+}
+
+function subscribeTheme(callback: () => void) {
+  window.addEventListener("ag-theme", callback);
+  window.addEventListener("storage", callback);
+  return () => {
+    window.removeEventListener("ag-theme", callback);
+    window.removeEventListener("storage", callback);
+  };
+}
+
 export function Shell({
   user,
   children,
@@ -37,11 +51,13 @@ export function Shell({
 }) {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
+  const theme = useSyncExternalStore(subscribeTheme, readTheme, () => "dark" as const);
 
   function toggleTheme() {
-    const next = document.documentElement.dataset.theme === "light" ? "dark" : "light";
-    document.documentElement.dataset.theme = next;
+    const next = theme === "light" ? "dark" : "light";
     localStorage.setItem("ag-theme", next);
+    document.documentElement.dataset.theme = next;
+    window.dispatchEvent(new Event("ag-theme"));
   }
 
   const items = NAV.filter((item) => item.roles.includes(user.role));
@@ -75,10 +91,8 @@ export function Shell({
           onClick={toggleTheme}
           className="mb-3 flex w-full items-center gap-2 rounded-md px-3 py-2 text-sm text-[#A3A3A3] hover:bg-[#141414] hover:text-[#F5F5F5]"
         >
-          <Sun size={16} className="when-dark" />
-          <Moon size={16} className="when-light" />
-          <span className="when-dark">Tema claro</span>
-          <span className="when-light">Tema escuro</span>
+          {theme === "dark" ? <Sun size={16} /> : <Moon size={16} />}
+          {theme === "dark" ? "Tema claro" : "Tema escuro"}
         </button>
         <div className="px-3 pb-3">
           <p className="text-sm font-semibold">{user.name}</p>
@@ -95,7 +109,7 @@ export function Shell({
   );
 
   return (
-    <div className="min-h-screen bg-bg text-ink">
+    <div data-theme={theme} className="min-h-screen bg-bg text-ink">
       <aside className="fixed inset-y-0 left-0 z-30 hidden w-60 border-r border-[#2E2E2E] md:block">{sidebar}</aside>
       {open ? (
         <div className="fixed inset-0 z-40 md:hidden">
