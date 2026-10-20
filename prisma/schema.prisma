@@ -1,0 +1,167 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id           String     @id @default(cuid())
+  name         String
+  email        String     @unique
+  passwordHash String
+  role         String
+  active       Boolean    @default(true)
+  createdAt    DateTime   @default(now())
+  mechanicOrders ServiceOrder[] @relation("OrderMechanic")
+  serviceItems   ServiceItem[]  @relation("ItemMechanic")
+  payments       Payment[]
+  auditLogs      AuditLog[]
+}
+
+model Client {
+  id        String    @id @default(cuid())
+  name      String
+  phone     String
+  email     String    @default("")
+  document  String    @default("")
+  type      String    @default("INDIVIDUAL")
+  notes     String    @default("")
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  vehicles  Vehicle[]
+  orders    ServiceOrder[]
+
+  @@index([phone])
+  @@index([type])
+}
+
+model Vehicle {
+  id        String   @id @default(cuid())
+  clientId  String
+  client    Client   @relation(fields: [clientId], references: [id])
+  plate     String   @unique
+  brand     String
+  model     String
+  year      Int?
+  color     String   @default("")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  orders    ServiceOrder[]
+
+  @@index([clientId])
+}
+
+model ServiceOrder {
+  id               String   @id @default(cuid())
+  number           Int      @unique
+  clientId         String
+  client           Client   @relation(fields: [clientId], references: [id])
+  vehicleId        String
+  vehicle          Vehicle  @relation(fields: [vehicleId], references: [id])
+  mileageIn        Int?
+  problemReport    String   @default("")
+  notes            String   @default("")
+  serviceStatus    String   @default("QUOTE")
+  paymentStatus    String   @default("UNPAID")
+  discountCents    Int      @default(0)
+  approvalAt       DateTime?
+  approvalChannel  String?
+  scheduledAt      DateTime?
+  mechanicId       String?
+  mechanic         User?    @relation("OrderMechanic", fields: [mechanicId], references: [id])
+  enteredAt        DateTime @default(now())
+  readyAt          DateTime?
+  deliveredAt      DateTime?
+  cancelledAt      DateTime?
+  cancelReason     String?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+  services         ServiceItem[]
+  parts            PartItem[]
+  payments         Payment[]
+  events           OrderEvent[]
+
+  @@index([serviceStatus])
+  @@index([paymentStatus])
+  @@index([enteredAt])
+  @@index([clientId])
+  @@index([mechanicId])
+}
+
+model ServiceItem {
+  id          String       @id @default(cuid())
+  orderId     String
+  order       ServiceOrder @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  description String
+  priceCents  Int
+  mechanicId  String?
+  mechanic    User?        @relation("ItemMechanic", fields: [mechanicId], references: [id])
+}
+
+model PartItem {
+  id             String       @id @default(cuid())
+  orderId        String
+  order          ServiceOrder @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  description    String
+  quantity       Float
+  unitCostCents  Int
+  unitPriceCents Int
+}
+
+model Payment {
+  id           String       @id @default(cuid())
+  orderId      String
+  order        ServiceOrder @relation(fields: [orderId], references: [id])
+  amountCents  Int
+  paidAt       DateTime
+  method       String
+  installments Int          @default(1)
+  notes        String       @default("")
+  createdById  String?
+  createdBy    User?        @relation(fields: [createdById], references: [id])
+  createdAt    DateTime     @default(now())
+
+  @@index([paidAt])
+  @@index([orderId])
+}
+
+model OrderEvent {
+  id        String       @id @default(cuid())
+  orderId   String
+  order     ServiceOrder @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  type      String
+  message   String
+  userId    String?
+  userName  String?
+  createdAt DateTime     @default(now())
+
+  @@index([orderId])
+}
+
+model AuditLog {
+  id        String   @id @default(cuid())
+  userId    String?
+  user      User?    @relation(fields: [userId], references: [id])
+  userName  String?
+  action    String
+  entity    String
+  entityId  String?
+  detail    String
+  createdAt DateTime @default(now())
+
+  @@index([createdAt])
+}
+
+model Setting {
+  id            String @id @default("default")
+  legalName     String @default("Autogarage")
+  tradeName     String @default("Autogarage")
+  cnpj          String @default("")
+  pixKey        String @default("")
+  phone         String @default("")
+  address       String @default("")
+  marginPercent Int    @default(40)
+}
